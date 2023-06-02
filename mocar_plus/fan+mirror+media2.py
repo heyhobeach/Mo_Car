@@ -8,7 +8,7 @@ import time
 #import RPi.GPIO as GPIO
 
 pygame.mixer.init() # mp3 or wav or ogg
-pygame.mixer.music.load('/home/pi/mocar/CAMO-Six Weeks.mp3') # wav mp3 ogg
+pygame.mixer.music.load('/home/jungmukim/mocar_plus/CAMO-Six Weeks.mp3') # wav mp3 ogg
 
 mp_drawing = mp.solutions.drawing_utils
 mp_hands = mp.solutions.hands
@@ -19,17 +19,17 @@ FAN = 18   #연결된 번호 GPIO
 
 '''GPIO.setmode(GPIO.BCM)   #GPIO 설정
 GPIO.setwarnings(False)   #경고 메시지 나타내지 않음
-GPIO.setup(FAN, GPIO.OUT)   #FAN 연결된 GPIO 출력 핀으로 설정'''
+GPIO.setup(FAN, GPIO.OUT)   #FAN 연결된 G  PIO 출력 핀으로 설정'''
 
 #채널 : FAN연결된 핀으로, 주파수 = 1000Hz인 pwm 발생
 control = 100 # 초기값은 100으로 설정해서 초기화 했음
-pi_pwm = GPIO.PWM(FAN, 10000)
-pi_pwm.start(0)   #duty 사이클 0%에서 pwm 시작(풍속 0), 최대 풍속 duty 100%
+#pi_pwm = GPIO.PWM(FAN, 10000)
+#pi_pwm.start(0)   #duty 사이클 0%에서 pwm 시작(풍속 0), 최대 풍속 duty 100%
 
 mp_face_detection = mp.solutions.face_detection
-face_detection = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
+face_detection = mp_face_detection.FaceDetection(min_detection_confidence=0.5)#원래 인자로 model_selection이 들어가야함
 
-detector = dlib.get_frontal_face_detector()
+detector = dlib.get_frontal_face_detector()#mediapipe부분은 아님
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
 
 # Load the image to be placed on the eyes
@@ -46,7 +46,7 @@ img = cv2.resize(img, (new_width, new_height))
 x = 0
 y = 0
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(0,cv2.CAP_V4L)
 
 with mp_hands.Hands(
         min_detection_confidence=0.5,

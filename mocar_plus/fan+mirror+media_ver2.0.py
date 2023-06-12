@@ -2,7 +2,6 @@ import cv2
 import mediapipe as mp
 from PIL import ImageFont, ImageDraw, Image
 import numpy as np
-import dlib
 import pygame
 import time
 import RPi.GPIO as GPIO
@@ -15,8 +14,6 @@ mp_hands = mp.solutions.hands
 mp_drawing_styles = mp.solutions.drawing_styles
 
 
-text = ""  
-
 FAN = 18   #연결된 번호 GPIO
 
 GPIO.setmode(GPIO.BCM)   #GPIO 설정
@@ -28,48 +25,29 @@ control = 100
 pi_pwm = GPIO.PWM(FAN, 10000)
 pi_pwm.start(0)   #duty 사이클 0%에서 pwm 시작(풍속 0), 최대 풍속 duty 100%
 
-mp_face_detection = mp.solutions.face_detection
-face_detection = mp_face_detection.FaceDetection(min_detection_confidence=0.5)
-
-detector = dlib.get_frontal_face_detector()
-predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
-
-# Load the image to be placed on the eyes
-eye_image = cv2.imread("image.jpg")
-
-# Set the desired width and height for the image
-new_width = 200
-new_height = 100
-
-# Resize the image to the desired size
-eye_image = cv2.resize(eye_image, (new_width, new_height))
-
-# Set the init position of the image
-x = 0
-y = 0
-
 cap = cv2.VideoCapture(0)
 
 with mp_hands.Hands(
+        max_num_hands=1,
         min_detection_confidence=0.5,
         min_tracking_confidence=0.5) as hands:
     while cap.isOpened():
-        success, frame = cap.read()
+        success, image = cap.read()
             
         if not success:
             print("empty camera frame.")
-            break  
+            break
 
         # Flip the frame horizontally for a later selfie-view display, and convert
-        frame_flip = cv2.cvtColor(cv2.flip(frame, 1), cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(cv2.flip(image, 1), cv2.COLOR_BGR2RGB)
 
         # To improve performance, optionally mark the frame as not writeable to
         # pass by reference.
-        frame.flags.writeable = False
-        results = hands.process(frame_flip)
-        frame.flags.writeable = True
-        frame = cv2.cvtColor(frame_flip, cv2.COLOR_RGB2BGR)
-        image_height, image_width, _ = frame_flip.shape
+        image.flags.writeable = False
+        results = hands.process(image)
+        image.flags.writeable = True
+        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+        image_height, image_width, _ = image.shape
         
         if results.multi_hand_landmarks:
             for hand_landmarks in results.multi_hand_landmarks:
@@ -122,10 +100,10 @@ with mp_hands.Hands(
                 font = ImageFont.truetype("/usr/share/fonts/truetype/freefont/FreeMono.ttf", 50) #라즈베리파이 용
                 #font = ImageFont.truetype("/fonts/gulim.ttc", 30) #윈도우
                 #font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Andale Mono.ttf", 30) #맥 용
-                image = Image.fromarray(frame_flip)
+                image = Image.fromarray(image)
                 draw = ImageDraw.Draw(image)
     
-                  
+                text = ""    
     
                 if thumb_finger_state == 1 and index_finger_state == 0 and middle_finger_state == 0 and ring_finger_state == 0 and pinky_finger_state == 0:
                     text = "on / 1"
@@ -152,7 +130,7 @@ with mp_hands.Hands(
                     text = "suond unpause"
                     control = 5
  
-                elif thumb_finger_state == 0 and index_finger_state == 0 and middle_finger_state == 0 and ring_finger_state == 0 and pinky_finger_state == 1: #!!
+                elif thumb_finger_state == 1 and index_finger_state == 1 and middle_finger_state == 0 and ring_finger_state == 0 and pinky_finger_state == 1: #!!
                     text = "sound pause"
                     control = 6     
 
@@ -190,57 +168,8 @@ with mp_hands.Hands(
                 elif control == 6:
                         pygame.mixer.music.pause()
 
-        results = face_detection.process(frame_flip)
-
-        if results.detections:
-            # Place the image on the frame
-            frame_flip[eye_image_y:eye_image_end_y, eye_image_x:eye_image_end_x] = eye_image
-
-            # Draw the text on the frame
-            cv2.putText(frame_flip, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-
-            for detection in results.detections:
-                mp_drawing.draw_detection(frame_flip, detection)
-
-                bboxC = detection.location_data.relative_bounding_box
-                ih, iw ,ic = frame.shape
-                bbox = int(bboxC.xmin * iw), int(bboxC.ymin * ih), int(bboxC.width * iw), int(bboxC.height * ih)\
-                
-                bbox_area = int(bboxC.width * iw) * int(bboxC.height * ih)
-                x, y, w, h = bbox
-
-                if bbox_area > 30000:
-                # Get the facial landmarks for the face
-                    landmarks = predictor(frame_flip, dlib.rectangle(x, y, x + w, y + h))
-
-                # Get the eye landmarks
-                    left_eye = landmarks.part(36)
-                    right_eye = landmarks.part(45)
-
-                # Calculate the position to place the image on the eyes
-                    x = left_eye.x
-                    y = left_eye.y
-
-                # Calculate the coordinates for placing the image based on the eye position
-                    eye_image_x = x - int(new_width / 2)
-                    eye_image_y = y - int(new_height / 2)
-
-                # Calculate the maximum coordinates to prevent the image from going off the frame
-                    max_x = w - new_width
-                    max_y = h - new_height
-
-                # Adjust the image coordinates if they exceed the maximum values
-                    eye_image_x = min(max_x, max(0, eye_image_x))
-                    eye_image_y = min(max_y, max(0, eye_image_y))
-
-                # Calculate the end coordinates for placing the image
-                    eye_image_end_x = eye_image_x + new_width
-                    eye_image_end_y = eye_image_y + new_height
-
-                # Place the image on the frame
-                    frame_flip[y:y + h, x:x + w] = eye_image 
                                          
-        cv2.imshow('fan+mirror+media', frame_flip)                        
+        cv2.imshow('fan+mirror+media', image)                        
                         
         if cv2.waitKey(5) & 0xFF == ord('q'):
             break
